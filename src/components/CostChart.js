@@ -37,12 +37,10 @@ const CHART_COLORS = [
 function CostChart({ updateTrigger, dateRange, onDateRangeChange }) {
   const [chartData, setChartData] = useState({
     labels: [],
-    datasets: [
-      {
-        data: [],
-        backgroundColor: CHART_COLORS,
-      },
-    ],
+    datasets: [{
+      data: [],
+      backgroundColor: CHART_COLORS,
+    }],
   });
 
   const fetchChartData = async () => {

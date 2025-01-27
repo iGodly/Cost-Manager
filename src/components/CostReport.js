@@ -43,6 +43,7 @@ function CostFetchError(message) {
 function CostReport({ updateTrigger, dateRange, onDateRangeChange, onCostUpdated }) {
   const [costs, setCosts] = useState([]);
   const [editingCost, setEditingCost] = useState(null);
+  const [sortBy, setSortBy] = useState('date');
   const [editFormData, setEditFormData] = useState({
     sum: '',
     category: '',
@@ -50,13 +51,30 @@ function CostReport({ updateTrigger, dateRange, onDateRangeChange, onCostUpdated
     date: new Date(),
   });
 
+  const getSortedCosts = (costsToSort) => {
+    return [...costsToSort].sort((a, b) => {
+      switch (sortBy) {
+        case 'date':
+          return new Date(a.date) - new Date(b.date);
+        case 'category':
+          return a.category.localeCompare(b.category);
+        case 'description':
+          return (a.description || '').localeCompare(b.description || '');
+        case 'sum':
+          return a.sum - b.sum;
+        default:
+          return 0;
+      }
+    });
+  };
+
   const fetchCosts = async () => {
     try {
       const monthCosts = await idb.getCostsByDateRange(
         dateRange.startDate,
         dateRange.endDate
       );
-      setCosts(monthCosts);
+      setCosts(getSortedCosts(monthCosts));
     } catch (error) {
       console.error('Error fetching costs:', error);
       throw new CostFetchError('Failed to fetch cost data');
@@ -68,6 +86,10 @@ function CostReport({ updateTrigger, dateRange, onDateRangeChange, onCostUpdated
       console.error('Failed to load costs:', error.message);
     });
   }, [dateRange.startDate, dateRange.endDate, updateTrigger]);
+
+  useEffect(() => {
+    setCosts(costs => getSortedCosts(costs));
+  }, [sortBy]);
 
   const handleStartDateChange = (newDate) => {
     onDateRangeChange(prev => ({
@@ -142,7 +164,7 @@ function CostReport({ updateTrigger, dateRange, onDateRangeChange, onCostUpdated
       <Typography variant='h6' gutterBottom fontWeight='bold'>
         Cost Report
       </Typography>
-      <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <DatePicker
             label='From'
@@ -159,6 +181,18 @@ function CostReport({ updateTrigger, dateRange, onDateRangeChange, onCostUpdated
             sx={{ width: 200 }}
           />
         </LocalizationProvider>
+        <TextField
+          select
+          label='Sort by'
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          sx={{ width: 150 }}
+        >
+          <MenuItem value='date'>Date</MenuItem>
+          <MenuItem value='category'>Category</MenuItem>
+          <MenuItem value='description'>Description</MenuItem>
+          <MenuItem value='sum'>Sum</MenuItem>
+        </TextField>
       </Box>
       <TableContainer>
         <Table>

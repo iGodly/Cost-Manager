@@ -135,5 +135,5 @@ class IDBWrapper {
     });
   }
 }
-
 export default new IDBWrapper();
+
