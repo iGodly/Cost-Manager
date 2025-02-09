@@ -3,29 +3,31 @@
  * Implements Promise-based operations for IndexedDB
  */
 
-const DB_NAME = 'CostManagerDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'costs';
-
 class IDBWrapper {
+  constructor() {
+    this.db = null;
+  }
+
   /**
-   * Initialize the database
-   * @returns {Promise} - Resolves when DB is ready
+   * Initialize the database with custom name and version
+   * @param {string} dbName - Database name
+   * @param {number} version - Database version
+   * @returns {Promise} - Resolves with the IDBWrapper instance
    */
-  async init() {
+  async openCostsDB(dbName, version) {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(dbName, version);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        resolve();
+        resolve(this);
       };
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, {
+        if (!db.objectStoreNames.contains('costs')) {
+          const store = db.createObjectStore('costs', {
             keyPath: 'id',
             autoIncrement: true,
           });
@@ -39,14 +41,27 @@ class IDBWrapper {
   }
 
   /**
+   * Initialize the database with default values (for backward compatibility)
+   * @returns {Promise} - Resolves when DB is ready
+   */
+  async init() {
+    return this.openCostsDB('CostManagerDB', 1);
+  }
+
+  /**
    * Add a new cost item
    * @param {Object} cost - Cost item {sum, category, description, date}
    * @returns {Promise} - Resolves with the ID of the new item
    */
   async addCost(cost) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
+      // Ensure date field exists
+      if (!cost.date) {
+        cost.date = new Date();
+      }
+      
+      const transaction = this.db.transaction(['costs'], 'readwrite');
+      const store = transaction.objectStore('costs');
       const request = store.add(cost);
 
       request.onerror = () => reject(request.error);
@@ -62,8 +77,8 @@ class IDBWrapper {
    */
   async getCostsByDateRange(startDate, endDate) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db.transaction(['costs'], 'readonly');
+      const store = transaction.objectStore('costs');
       const index = store.index('date');
 
       // Set time to start and end of day
@@ -110,8 +125,8 @@ class IDBWrapper {
    */
   async updateCost(cost) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db.transaction(['costs'], 'readwrite');
+      const store = transaction.objectStore('costs');
       const request = store.put(cost);
 
       request.onerror = () => reject(request.error);
@@ -126,8 +141,8 @@ class IDBWrapper {
    */
   async deleteCost(id) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db.transaction(['costs'], 'readwrite');
+      const store = transaction.objectStore('costs');
       const request = store.delete(id);
 
       request.onerror = () => reject(request.error);
@@ -135,5 +150,17 @@ class IDBWrapper {
     });
   }
 }
-export default new IDBWrapper();
+
+// Create instance
+const idb = new IDBWrapper();
+
+// Handle both module and non-module environments
+if (typeof exports !== 'undefined') {
+  module.exports = idb;
+} else if (typeof window !== 'undefined') {
+  window.idb = idb;
+}
+
+// For ES modules
+export default idb;
 
